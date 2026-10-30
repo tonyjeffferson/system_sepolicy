@@ -1,0 +1,58 @@
+# AxDiagnostics is a platform-signed, privileged system_ext app. Keep its
+# kernel diagnostics access isolated to this package-specific domain.
+type axdiagnostics_app, domain;
+typeattribute axdiagnostics_app coredomain, mlstrustedsubject;
+type axdiagnostics_compact_memory, fs_type, proc_type;
+
+app_domain(axdiagnostics_app)
+net_domain(axdiagnostics_app)
+binder_use(axdiagnostics_app)
+
+allow axdiagnostics_app system_app_data_file:dir create_dir_perms;
+allow axdiagnostics_app system_app_data_file:{ file lnk_file } create_file_perms;
+allow axdiagnostics_app { app_api_service system_api_service }:service_manager find;
+
+# Read kernel and device telemetry. Keep the kernel address map, uid accounting
+# controls, and usermodehelper interfaces outside this broad read grant.
+allow axdiagnostics_app proc_type:dir r_dir_perms;
+allow axdiagnostics_app {
+  proc_type
+  -proc_security
+  -proc_kallsyms
+  -proc_uid_cputime_showstat
+  -proc_uid_cputime_removeuid
+  -proc_uid_io_stats
+  -proc_uid_procstat_set
+  -proc_uid_time_in_state
+  -proc_uid_concurrent_active_time
+  -proc_uid_concurrent_policy_time
+  -proc_uid_cpupower
+  -proc_net_tcp_udp
+  -proc_drop_caches
+  -proc_overcommit_memory
+  -proc_min_free_order_shift
+  -proc_kpageflags
+  -proc_watermark_boost_factor
+  -proc_percpu_pagelist_high_fraction
+  -usermodehelper
+}:file r_file_perms;
+allow axdiagnostics_app proc_type:lnk_file { getattr read };
+
+allow axdiagnostics_app sysfs_type:dir r_dir_perms;
+allow axdiagnostics_app {
+  sysfs_type
+  -sysfs_usermodehelper
+  -sysfs_batteryinfo
+  -sysfs_leds
+}:file r_file_perms;
+allow axdiagnostics_app sysfs_type:lnk_file { getattr read };
+
+# Read battery telemetry required by AxDiagnostics.
+allow axdiagnostics_app sysfs_batteryinfo:file r_file_perms;
+
+# Wakelock diagnostics use this one labeled debugfs node.
+allow axdiagnostics_app debugfs_wakeup_sources:file r_file_perms;
+
+# Permit only the explicit memory maintenance controls exposed by the app.
+allow axdiagnostics_app proc_drop_caches:file w_file_perms;
+allow axdiagnostics_app axdiagnostics_compact_memory:file w_file_perms;
